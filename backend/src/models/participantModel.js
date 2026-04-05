@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const participantSchema = new mongoose.Schema(
   {
@@ -16,4 +16,4 @@ const participantSchema = new mongoose.Schema(
   { _id: false }
 );
 
-export default participantSchema;
+module.exports = participantSchema;

@@ -1,25 +1,40 @@
-import Expense from "../models/expenseModel.js";
-import User from "../models/userModel.js";
-import { parseAmount, roundAmount, splitEqualAmounts } from "../utils/money.js";
-import { EXPENSE } from "../utils/msgResponse.js";
-import { getBalancesFromExpenses, getSettlementsFromExpenses } from "../utils/settlementHelpers.js";
+const Expense = require("../models/expenseModel");
+const User = require("../models/userModel");
+const { parseAmount, roundAmount, splitEqualAmounts } = require("../utils/money");
+const { EXPENSE } = require("../utils/msgResponse");
+const { getBalancesFromExpenses, getSettlementsFromExpenses } = require("../utils/settlementHelpers");
 
-const buildUserMap = (users) => new Map(users.map((user) => [user._id.toString(), user]));
+const getUserMap = (users) =>
+  new Map(users.map((user) => [user._id.toString(), user]));
 
-const formatExpense = (expense, usersById) => ({
+const getParticipants = (list) =>
+  list
+    .map((item) => ({
+      userId: String(item?.userId || "").trim(),
+      share: item?.share === "" || item?.share === undefined ? "" : Number(item.share),
+    }))
+    .filter((item) => item.userId);
+
+const getActiveUsers = async (userIds) =>
+  User.find({
+    _id: { $in: userIds },
+    status: "active",
+  });
+
+const formatExpense = (expense, userMap) => ({
   id: expense._id.toString(),
   description: expense.description,
   amount: roundAmount(expense.amount),
   splitType: expense.splitType,
   payer: {
     userId: expense.payer.userId,
-    name: usersById.get(expense.payer.userId)?.name || "Unknown user",
+    name: userMap.get(expense.payer.userId)?.name || "Unknown user",
   },
   participants: expense.participants.map((participant) => ({
-    userId: participant.userId,
-    name: usersById.get(participant.userId)?.name || "Unknown user",
-    share: roundAmount(participant.share),
-  })),
+      userId: participant.userId,
+      name: userMap.get(participant.userId)?.name || "Unknown user",
+      share: roundAmount(participant.share),
+    })),
   createdAt: expense.createdAt,
 });
 
@@ -28,7 +43,7 @@ const normalizeExpensePayload = (body, users) => {
   const splitType = String(body.splitType || "equal").trim().toLowerCase();
   const amount = parseAmount(body.amount);
   const payerUserId = String(body.payer?.userId || "").trim();
-  const rawParticipants = Array.isArray(body.participants) ? body.participants : [];
+  const participantList = Array.isArray(body.participants) ? body.participants : [];
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { success: false, statusCode: 400, message: EXPENSE.INVALID_AMOUNT };
@@ -42,39 +57,27 @@ const normalizeExpensePayload = (body, users) => {
     return { success: false, statusCode: 400, message: EXPENSE.PAYER_REQUIRED };
   }
 
-  const participants = rawParticipants
-    .map((participant) => ({
-      userId: String(participant?.userId || "").trim(),
-      share:
-        participant?.share === "" || participant?.share === undefined
-          ? ""
-          : Number(participant.share),
-    }))
-    .filter((participant) => participant.userId);
+  const participants = getParticipants(participantList);
 
   if (participants.length < 2) {
     return { success: false, statusCode: 400, message: EXPENSE.MIN_PARTICIPANTS };
   }
 
-  const participantIds = participants.map((participant) => participant.userId);
+  const participantIds = participants.map((item) => item.userId);
+  const uniqueParticipantIds = new Set(participantIds);
+  const userMap = getUserMap(users);
 
-  if (new Set(participantIds).size !== participantIds.length) {
+  if (uniqueParticipantIds.size !== participantIds.length) {
     return { success: false, statusCode: 400, message: EXPENSE.DUPLICATE_PARTICIPANTS };
   }
 
-  const usersMap = buildUserMap(users);
+  const hasInvalidParticipant = participants.some((item) => !userMap.has(item.userId));
 
-  participants.forEach((participant) => {
-    if (!usersMap.has(participant.userId)) {
-      return;
-    }
-  });
-
-  if (participants.some((participant) => !usersMap.has(participant.userId))) {
+  if (hasInvalidParticipant) {
     return { success: false, statusCode: 400, message: EXPENSE.INVALID_PARTICIPANTS };
   }
 
-  if (!usersMap.has(payerUserId)) {
+  if (!userMap.has(payerUserId)) {
     return { success: false, statusCode: 400, message: EXPENSE.INVALID_PAYER };
   }
 
@@ -86,28 +89,35 @@ const normalizeExpensePayload = (body, users) => {
 
   if (splitType === "equal") {
     const equalShares = splitEqualAmounts(amount, participants.length);
-
-    normalizedParticipants = participants.map((participant, index) => ({
-      userId: participant.userId,
+    normalizedParticipants = participants.map((item, index) => ({
+      userId: item.userId,
       share: equalShares[index],
     }));
   } else {
-    if (participants.some((participant) => !Number.isFinite(participant.share) || participant.share < 0)) {
-      return { success: false, statusCode: 400, message: EXPENSE.INVALID_SHARE };
+    let totalShare = 0;
+
+    normalizedParticipants = [];
+
+    for (let index = 0; index < participants.length; index += 1) {
+      const participant = participants[index];
+
+      if (!Number.isFinite(participant.share) || participant.share < 0) {
+        return { success: false, statusCode: 400, message: EXPENSE.INVALID_SHARE };
+      }
+
+      const roundedShare = roundAmount(Number(participant.share));
+      totalShare += roundedShare;
+      normalizedParticipants.push({
+        userId: participants[index].userId,
+        share: roundedShare,
+      });
     }
 
-    const totalShares = roundAmount(
-      participants.reduce((sum, participant) => sum + Number(participant.share), 0)
-    );
+    totalShare = roundAmount(totalShare);
 
-    if (totalShares !== amount) {
+    if (totalShare !== amount) {
       return { success: false, statusCode: 400, message: EXPENSE.INVALID_TOTAL_SHARE };
     }
-
-    normalizedParticipants = participants.map((participant) => ({
-      userId: participant.userId,
-      share: roundAmount(Number(participant.share)),
-    }));
   }
 
   return {
@@ -124,32 +134,15 @@ const normalizeExpensePayload = (body, users) => {
   };
 };
 
-const getUsersMapForExpenses = async (expenses) => {
+const createExpenseRecord = async (body) => {
+  const payerUserId = String(body.payer?.userId || "").trim();
+  const participantList = Array.isArray(body.participants) ? body.participants : [];
+  const participants = getParticipants(participantList);
   const userIds = Array.from(
-    new Set(
-      expenses.flatMap((expense) => [
-        expense.payer.userId,
-        ...expense.participants.map((participant) => participant.userId),
-      ])
-    )
+    new Set([payerUserId, ...participants.map((item) => item.userId)])
   );
 
-  const users = await User.find({ _id: { $in: userIds } });
-  return buildUserMap(users);
-};
-
-export const createExpenseRecord = async (body) => {
-  const payerUserId = String(body.payer?.userId || "").trim();
-  const rawParticipants = Array.isArray(body.participants) ? body.participants : [];
-  const participantIds = rawParticipants
-    .map((participant) => String(participant?.userId || "").trim())
-    .filter(Boolean);
-  const userIds = Array.from(new Set([...participantIds, payerUserId]));
-
-  const users = await User.find({
-    _id: { $in: userIds },
-    status: "active",
-  });
+  const users = await getActiveUsers(userIds);
 
   const normalizedExpense = normalizeExpensePayload(body, users);
 
@@ -158,30 +151,131 @@ export const createExpenseRecord = async (body) => {
   }
 
   const expense = await Expense.create(normalizedExpense.data);
-  const usersById = buildUserMap(users);
+  const userMap = getUserMap(users);
 
-  return { success: true, data: formatExpense(expense.toObject(), usersById) };
+  return {
+    success: true,
+    data: formatExpense(expense, userMap),
+  };
 };
 
-export const getExpenseList = async () => {
-  const expenses = await Expense.find({ isDeleted: false }).sort({ createdAt: -1 }).lean();
-  const usersById = await getUsersMapForExpenses(expenses);
-  return expenses.map((expense) => formatExpense(expense, usersById));
-};
+const getExpenseList = async () =>
+  Expense.aggregate([
+    {
+      $match: {
+        isDeleted: false,
+      },
+    },
+    {
+      $sort: {
+        createdAt: -1,
+      },
+    },
+    {
+      $addFields: {
+        payerObjectId: {
+          $convert: {
+            input: "$payer.userId",
+            to: "objectId",
+            onError: null,
+            onNull: null,
+          },
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "payerObjectId",
+        foreignField: "_id",
+        as: "payerUser",
+      },
+    },
+    {
+      $unwind: "$participants",
+    },
+    {
+      $addFields: {
+        participantObjectId: {
+          $convert: {
+            input: "$participants.userId",
+            to: "objectId",
+            onError: null,
+            onNull: null,
+          },
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "participantObjectId",
+        foreignField: "_id",
+        as: "participantUser",
+      },
+    },
+    {
+      $group: {
+        _id: "$_id",
+        description: { $first: "$description" },
+        amount: { $first: "$amount" },
+        splitType: { $first: "$splitType" },
+        createdAt: { $first: "$createdAt" },
+        payerUserId: { $first: "$payer.userId" },
+        payerName: {
+          $first: {
+            $ifNull: [{ $arrayElemAt: ["$payerUser.name", 0] }, "Unknown user"],
+          },
+        },
+        participants: {
+          $push: {
+            userId: "$participants.userId",
+            name: {
+              $ifNull: [{ $arrayElemAt: ["$participantUser.name", 0] }, "Unknown user"],
+            },
+            share: "$participants.share",
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        id: { $toString: "$_id" },
+        description: 1,
+        amount: 1,
+        splitType: 1,
+        createdAt: 1,
+        payer: {
+          userId: "$payerUserId",
+          name: "$payerName",
+        },
+        participants: 1,
+      },
+    },
+  ]);
 
-export const deleteExpenseRecord = async (expenseId) =>
+const deleteExpenseRecord = async (expenseId) =>
   Expense.findOneAndUpdate(
     { _id: expenseId, isDeleted: false },
     { isDeleted: true },
     { new: true }
   );
 
-export const getBalancesSummary = async () => {
+const getBalancesSummary = async () => {
   const expenses = await getExpenseList();
   return getBalancesFromExpenses(expenses);
 };
 
-export const getSettlementsSummary = async () => {
+const getSettlementsSummary = async () => {
   const expenses = await getExpenseList();
   return getSettlementsFromExpenses(expenses);
+};
+
+module.exports = {
+  createExpenseRecord,
+  getExpenseList,
+  deleteExpenseRecord,
+  getBalancesSummary,
+  getSettlementsSummary,
 };

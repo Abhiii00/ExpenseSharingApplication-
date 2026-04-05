@@ -1,5 +1,5 @@
-import User from "../models/userModel.js";
-import { USER } from "../utils/msgResponse.js";
+const User = require("../models/userModel");
+const { USER } = require("../utils/msgResponse");
 
 const formatUser = (user) => ({
   id: user._id.toString(),
@@ -8,7 +8,7 @@ const formatUser = (user) => ({
   status: user.status,
 });
 
-export const createUserRecord = async (body) => {
+const createUserRecord = async (body) => {
   const name = String(body.name || "").trim();
   const username = String(body.username || "").trim().toLowerCase();
 
@@ -30,12 +30,12 @@ export const createUserRecord = async (body) => {
   return { success: true, data: formatUser(user) };
 };
 
-export const getUserList = async () => {
+const getUserList = async () => {
   const users = await User.find().sort({ createdAt: -1 });
   return users.map(formatUser);
 };
 
-export const updateUserStatusRecord = async (userId, status) => {
+const updateUserStatusRecord = async (userId, status) => {
   const normalizedStatus = String(status || "").trim().toLowerCase();
 
   if (!["active", "inactive"].includes(normalizedStatus)) {
@@ -53,4 +53,10 @@ export const updateUserStatusRecord = async (userId, status) => {
   }
 
   return { success: true, data: formatUser(user) };
+};
+
+module.exports = {
+  createUserRecord,
+  getUserList,
+  updateUserStatusRecord,
 };

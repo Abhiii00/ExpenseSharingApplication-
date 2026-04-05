@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
-import participantSchema from "./participantModel.js";
-import payerSchema from "./payerModel.js";
+const mongoose = require("mongoose");
+const participantSchema = require("./participantModel");
+const payerSchema = require("./payerModel");
 
 const expenseSchema = new mongoose.Schema(
   {
@@ -35,4 +35,6 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Expense", expenseSchema);
+expenseSchema.index({ isDeleted: 1, createdAt: -1 });
+
+module.exports = mongoose.model("Expense", expenseSchema);

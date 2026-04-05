@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const payerSchema = new mongoose.Schema(
   {
@@ -11,4 +11,4 @@ const payerSchema = new mongoose.Schema(
   { _id: false }
 );
 
-export default payerSchema;
+module.exports = payerSchema;

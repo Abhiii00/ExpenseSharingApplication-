@@ -1,12 +1,12 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   createExpense,
   deleteExpense,
   getAllExpenses,
   getBalances,
   getSettlements,
-} from "../controllers/expenseController.js";
-import { createUser, getUsers, updateUserStatus } from "../controllers/userController.js";
+} = require("../controllers/expenseController");
+const { createUser, getUsers, updateUserStatus } = require("../controllers/userController");
 
 const router = express.Router();
 
@@ -26,4 +26,4 @@ router.delete("/expenses/:id", deleteExpense);
 router.get("/balances", getBalances);
 router.get("/settlements", getSettlements);
 
-export default router;
+module.exports = router;

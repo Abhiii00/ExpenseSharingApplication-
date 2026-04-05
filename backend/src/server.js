@@ -1,10 +1,10 @@
-import cors from "cors";
-import express from "express";
-import morgan from "morgan";
-import { connectDB } from "./config/db.js";
-import { env } from "./config/env.js";
-import { notFound } from "./middlewares/notFound.js";
-import routes from "./routes/route.js";
+const cors = require("cors");
+const express = require("express");
+const morgan = require("morgan");
+const connectDB = require("./config/db");
+const { env } = require("./config/env");
+const { notFound } = require("./middlewares/notFound");
+const routes = require("./routes/route");
 
 const app = express();
 
@@ -19,13 +19,12 @@ app.use(morgan("dev"));
 app.use("/api", routes);
 app.use(notFound);
 
-connectDB()
-  .then(() => {
-    app.listen(env.port, () => {
-      console.log(`Server running on port ${env.port}`);
-    });
-  })
-  .catch((error) => {
-    console.error("Database connection failed", error);
-    process.exit(1);
+const startServer = async () => {
+  await connectDB();
+
+  app.listen(env.port, () => {
+    console.log(`Server running on port ${env.port}`);
   });
+};
+
+startServer();

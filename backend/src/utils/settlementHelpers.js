@@ -1,4 +1,4 @@
-import { roundAmount } from "./money.js";
+const { roundAmount } = require("./money");
 
 const buildNetBalancesMap = (expenses) => {
   const netMap = new Map();
@@ -28,7 +28,7 @@ const buildNetBalancesMap = (expenses) => {
   return netMap;
 };
 
-export const getBalancesFromExpenses = (expenses) => {
+const getBalancesFromExpenses = (expenses) => {
   const pairMap = new Map();
 
   expenses.forEach((expense) => {
@@ -134,7 +134,7 @@ const settleDebts = (balances) => {
   return settlements;
 };
 
-export const getSettlementsFromExpenses = (expenses) => {
+const getSettlementsFromExpenses = (expenses) => {
   const netBalances = Array.from(buildNetBalancesMap(expenses).values()).filter(
     (user) => user.balance !== 0
   );
@@ -150,4 +150,9 @@ export const getSettlementsFromExpenses = (expenses) => {
     totalTransactions: settlements.length,
     settlements,
   };
+};
+
+module.exports = {
+  getBalancesFromExpenses,
+  getSettlementsFromExpenses,
 };

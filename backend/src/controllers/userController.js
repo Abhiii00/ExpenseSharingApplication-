@@ -1,12 +1,12 @@
-import { COMMON, USER } from "../utils/msgResponse.js";
-import { sendError, sendSuccess } from "../utils/responseHelper.js";
-import {
+const { COMMON, USER } = require("../utils/msgResponse");
+const { sendError, sendSuccess } = require("../utils/responseHelper");
+const {
   createUserRecord,
   getUserList,
   updateUserStatusRecord,
-} from "../services/userService.js";
+} = require("../services/userService");
 
-export const createUser = async (req, res) => {
+const createUser = async (req, res) => {
   try {
     const result = await createUserRecord(req.body);
 
@@ -20,7 +20,7 @@ export const createUser = async (req, res) => {
   }
 };
 
-export const getUsers = async (_req, res) => {
+const getUsers = async (_req, res) => {
   try {
     const users = await getUserList();
     return sendSuccess(res, 200, USER.FETCHED, users);
@@ -29,7 +29,7 @@ export const getUsers = async (_req, res) => {
   }
 };
 
-export const updateUserStatus = async (req, res) => {
+const updateUserStatus = async (req, res) => {
   try {
     const result = await updateUserStatusRecord(req.params.id, req.body.status);
 
@@ -41,4 +41,10 @@ export const updateUserStatus = async (req, res) => {
   } catch (error) {
     return sendError(res, 500, COMMON.SERVER_ERROR, error.message);
   }
+};
+
+module.exports = {
+  createUser,
+  getUsers,
+  updateUserStatus,
 };

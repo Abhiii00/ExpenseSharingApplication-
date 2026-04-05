@@ -1,14 +1,14 @@
-import {
+const {
   createExpenseRecord,
   deleteExpenseRecord,
   getBalancesSummary,
   getExpenseList,
   getSettlementsSummary,
-} from "../services/expenseService.js";
-import { COMMON, EXPENSE } from "../utils/msgResponse.js";
-import { sendError, sendSuccess } from "../utils/responseHelper.js";
+} = require("../services/expenseService");
+const { COMMON, EXPENSE } = require("../utils/msgResponse");
+const { sendError, sendSuccess } = require("../utils/responseHelper");
 
-export const createExpense = async (req, res) => {
+const createExpense = async (req, res) => {
   try {
     const result = await createExpenseRecord(req.body);
 
@@ -22,7 +22,7 @@ export const createExpense = async (req, res) => {
   }
 };
 
-export const getAllExpenses = async (req, res) => {
+const getAllExpenses = async (req, res) => {
   try {
     const expenses = await getExpenseList();
 
@@ -32,7 +32,7 @@ export const getAllExpenses = async (req, res) => {
   }
 };
 
-export const deleteExpense = async (req, res) => {
+const deleteExpense = async (req, res) => {
   try {
     const expense = await deleteExpenseRecord(req.params.id);
 
@@ -46,7 +46,7 @@ export const deleteExpense = async (req, res) => {
   }
 };
 
-export const getBalances = async (req, res) => {
+const getBalances = async (req, res) => {
   try {
     const balances = await getBalancesSummary();
     return sendSuccess(res, 200, EXPENSE.BALANCES_FETCHED, balances);
@@ -55,11 +55,19 @@ export const getBalances = async (req, res) => {
   }
 };
 
-export const getSettlements = async (req, res) => {
+const getSettlements = async (req, res) => {
   try {
     const settlements = await getSettlementsSummary();
     return sendSuccess(res, 200, EXPENSE.SETTLEMENTS_FETCHED, settlements);
   } catch (error) {
     return sendError(res, 500, COMMON.SERVER_ERROR, error.message);
   }
+};
+
+module.exports = {
+  createExpense,
+  getAllExpenses,
+  deleteExpense,
+  getBalances,
+  getSettlements,
 };
