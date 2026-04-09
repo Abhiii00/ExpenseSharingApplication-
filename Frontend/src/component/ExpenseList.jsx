@@ -15,15 +15,15 @@ const ExpenseList = ({ expenses, deletingId, onDelete }) => {
               <div className="expense-header">
                 <div>
                   <h3>{expense.description || "Untitled expense"}</h3>
-                  <p>Paid by {expense.payer.name} | {expense.splitType} split</p>
+                  <p>Paid by {expense.payer?.name || "Unknown payer"} | {expense.splitType} split</p>
                 </div>
-                <strong>Rs {expense.amount.toFixed(2)}</strong>
+                <strong>Rs {Number(expense.amount || 0).toFixed(2)}</strong>
               </div>
 
               <div className="tag-wrap">
-                {expense.participants.map((participant) => (
+                {(expense.participants || []).map((participant) => (
                   <span className="tag" key={participant.userId}>
-                    {participant.name}: Rs {participant.share.toFixed(2)}
+                    {participant.name}: Rs {Number(participant.share || 0).toFixed(2)}
                   </span>
                 ))}
               </div>

@@ -26,6 +26,18 @@ const defaultSettlements = {
   settlements: [],
 };
 
+const getErrorMessage = (err, fallbackMessage) => {
+  if (err?.response?.data?.message) {
+    return err.response.data.message;
+  }
+
+  if (err?.message) {
+    return err.message;
+  }
+
+  return fallbackMessage;
+};
+
 function App() {
   const [users, setUsers] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -53,7 +65,7 @@ function App() {
       setSettlements(settlementData);
       setError("");
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to load application data.");
+      setError(getErrorMessage(err, "Unable to load application data."));
     } finally {
       setLoading(false);
     }
@@ -70,7 +82,7 @@ function App() {
       setError("");
       return true;
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to create user.");
+      setError(getErrorMessage(err, "Unable to create user."));
       return false;
     }
   };
@@ -80,8 +92,10 @@ function App() {
       await updateUserStatus(userId, status);
       await loadData();
       setError("");
+      return true;
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to update user status.");
+      setError(getErrorMessage(err, "Unable to update user status."));
+      return false;
     }
   };
 
@@ -91,8 +105,10 @@ function App() {
       await addExpense(payload);
       await loadData();
       setError("");
+      return true;
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to create expense.");
+      setError(getErrorMessage(err, "Unable to create expense."));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -104,8 +120,10 @@ function App() {
       await removeExpense(expenseId);
       await loadData();
       setError("");
+      return true;
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete expense.");
+      setError(getErrorMessage(err, "Unable to delete expense."));
+      return false;
     } finally {
       setDeletingId("");
     }

@@ -1,4 +1,7 @@
 const SettlementList = ({ settlements }) => {
+  const items = settlements?.settlements || [];
+  const totalTransactions = settlements?.totalTransactions || 0;
+
   return (
     <div className="card">
       <div className="section-title inline-title">
@@ -6,17 +9,17 @@ const SettlementList = ({ settlements }) => {
           <p>Settlements</p>
           <h2>Optimized Payments</h2>
         </div>
-        <span className="pill">{settlements.totalTransactions} transactions</span>
+        <span className="pill">{totalTransactions} transactions</span>
       </div>
 
-      {settlements.settlements.length === 0 ? (
+      {items.length === 0 ? (
         <p className="empty-text">No settlements needed.</p>
       ) : (
         <div className="list-wrap compact">
-          {settlements.settlements.map((item, index) => (
+          {items.map((item, index) => (
             <div className="summary-item" key={`${item.from.userId}-${item.to.userId}-${index}`}>
               <span>{item.summary}</span>
-              <strong>Rs {item.amount.toFixed(2)}</strong>
+              <strong>Rs {Number(item.amount || 0).toFixed(2)}</strong>
             </div>
           ))}
         </div>

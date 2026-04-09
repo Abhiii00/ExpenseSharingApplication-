@@ -15,6 +15,7 @@ const initialForm = {
 
 const ExpenseForm = ({ onCreate, loading, users }) => {
   const [form, setForm] = useState(initialForm);
+  const [error, setError] = useState("");
   const activeUsers = users.filter((user) => user.status === "active");
   const getAvailableUsers = (currentIndex) => {
     const selectedUserIds = new Set(
@@ -87,15 +88,25 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    await onCreate({
-      description: form.description,
-      amount: form.amount,
-      splitType: form.splitType,
-      payer: form.participants[form.payerIndex],
-      participants: form.participants,
-    });
+    try {
+      setError("");
 
-    setForm(initialForm);
+      const created = await onCreate({
+        description: form.description,
+        amount: form.amount,
+        splitType: form.splitType,
+        payer: form.participants[form.payerIndex],
+        participants: form.participants,
+      });
+
+      if (created) {
+        setForm(initialForm);
+      } else {
+        setError("Could not save the expense. Please review the details and try again.");
+      }
+    } catch (err) {
+      setError(err?.message || "Something went wrong while saving the expense.");
+    }
   };
 
   return (
@@ -194,6 +205,8 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
         <button className="primary-btn" disabled={loading || !canSubmit}>
           {loading ? "Saving..." : "Save Expense"}
         </button>
+
+        {error ? <p className="empty-text">{error}</p> : null}
       </form>
     </div>
   );

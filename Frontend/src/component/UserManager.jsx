@@ -5,17 +5,48 @@ const UserManager = ({ users, onAddUser, onToggleUserStatus }) => {
     name: "",
     username: "",
   });
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [updatingUserId, setUpdatingUserId] = useState("");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const created = await onAddUser(form);
+    try {
+      setIsSubmitting(true);
+      setError("");
 
-    if (created) {
-      setForm({
-        name: "",
-        username: "",
-      });
+      const created = await onAddUser(form);
+
+      if (created) {
+        setForm({
+          name: "",
+          username: "",
+        });
+      } else {
+        setError("Could not create user. Please check the form and try again.");
+      }
+    } catch (err) {
+      setError(err?.message || "Something went wrong while creating the user.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleStatus = async (userId, status) => {
+    try {
+      setUpdatingUserId(userId);
+      setError("");
+
+      const updated = await onToggleUserStatus(userId, status);
+
+      if (!updated) {
+        setError("Could not update user status. Please try again.");
+      }
+    } catch (err) {
+      setError(err?.message || "Something went wrong while updating the user.");
+    } finally {
+      setUpdatingUserId("");
     }
   };
 
@@ -40,9 +71,11 @@ const UserManager = ({ users, onAddUser, onToggleUserStatus }) => {
           onChange={(event) => setForm({ ...form, username: event.target.value })}
         />
         <button className="primary-btn" type="submit">
-          Add User
+          {isSubmitting ? "Adding..." : "Add User"}
         </button>
       </form>
+
+      {error ? <p className="empty-text">{error}</p> : null}
 
       <div className="user-list top-gap">
         {users.length === 0 ? (
@@ -57,11 +90,15 @@ const UserManager = ({ users, onAddUser, onToggleUserStatus }) => {
               <button
                 type="button"
                 className="secondary-btn"
+                disabled={updatingUserId === user.id}
                 onClick={() =>
-                  onToggleUserStatus(user.id, user.status === "active" ? "inactive" : "active")
+                  handleToggleStatus(
+                    user.id,
+                    user.status === "active" ? "inactive" : "active"
+                  )
                 }
               >
-                {user.status}
+                {updatingUserId === user.id ? "Updating..." : user.status}
               </button>
             </div>
           ))

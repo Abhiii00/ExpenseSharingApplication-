@@ -21,23 +21,6 @@ const getActiveUsers = async (userIds) =>
     status: "active",
   });
 
-const formatExpense = (expense, userMap) => ({
-  id: expense._id.toString(),
-  description: expense.description,
-  amount: roundAmount(expense.amount),
-  splitType: expense.splitType,
-  payer: {
-    userId: expense.payer.userId,
-    name: userMap.get(expense.payer.userId)?.name || "Unknown user",
-  },
-  participants: expense.participants.map((participant) => ({
-      userId: participant.userId,
-      name: userMap.get(participant.userId)?.name || "Unknown user",
-      share: roundAmount(participant.share),
-    })),
-  createdAt: expense.createdAt,
-});
-
 const normalizeExpensePayload = (body, users) => {
   const description = String(body.description || "").trim();
   const splitType = String(body.splitType || "equal").trim().toLowerCase();
@@ -150,12 +133,11 @@ const createExpenseRecord = async (body) => {
     return normalizedExpense;
   }
 
-  const expense = await Expense.create(normalizedExpense.data);
-  const userMap = getUserMap(users);
+  await Expense.create(normalizedExpense.data);
 
   return {
     success: true,
-    data: formatExpense(expense, userMap),
+    data: null,
   };
 };
 
