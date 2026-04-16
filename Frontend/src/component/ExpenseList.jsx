@@ -1,3 +1,15 @@
+const getSplitValueLabel = (expense, participant) => {
+  if (expense.splitType === "percentage" && participant.percentage !== undefined) {
+    return ` (${Number(participant.percentage).toFixed(2)}%)`;
+  }
+
+  if (expense.splitType === "ratio" && participant.ratio !== undefined) {
+    return ` (ratio ${participant.ratio})`;
+  }
+
+  return "";
+};
+
 const ExpenseList = ({ expenses, deletingId, onDelete }) => {
   return (
     <div className="card">
@@ -24,6 +36,7 @@ const ExpenseList = ({ expenses, deletingId, onDelete }) => {
                 {(expense.participants || []).map((participant) => (
                   <span className="tag" key={participant.userId}>
                     {participant.name}: Rs {Number(participant.share || 0).toFixed(2)}
+                    {getSplitValueLabel(expense, participant)}
                   </span>
                 ))}
               </div>

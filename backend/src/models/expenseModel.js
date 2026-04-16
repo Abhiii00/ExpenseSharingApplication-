@@ -16,7 +16,7 @@ const expenseSchema = new mongoose.Schema(
     },
     splitType: {
       type: String,
-      enum: ["equal", "unequal"],
+      enum: ["equal", "unequal", "ratio", "percentage"],
       default: "equal",
     },
     payer: {

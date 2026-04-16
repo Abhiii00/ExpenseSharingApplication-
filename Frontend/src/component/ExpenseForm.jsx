@@ -3,6 +3,8 @@ import { useState } from "react";
 const createParticipant = () => ({
   userId: "",
   share: "",
+  percentage: "",
+  ratio: "",
 });
 
 const initialForm = {
@@ -17,6 +19,48 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
   const activeUsers = users.filter((user) => user.status === "active");
+  const filledParticipants = form.participants.filter((participant) => participant.userId);
+
+  const getParticipantValueField = () => {
+    if (form.splitType === "unequal") {
+      return "share";
+    }
+
+    if (form.splitType === "percentage") {
+      return "percentage";
+    }
+
+    if (form.splitType === "ratio") {
+      return "ratio";
+    }
+
+    return "";
+  };
+
+  const getParticipantValueLabel = () => {
+    if (form.splitType === "unequal") {
+      return "Share";
+    }
+
+    if (form.splitType === "percentage") {
+      return "Percentage";
+    }
+
+    if (form.splitType === "ratio") {
+      return "Ratio";
+    }
+
+    return "Auto";
+  };
+
+  const getParticipantValueStep = () => {
+    if (form.splitType === "ratio") {
+      return "1";
+    }
+
+    return "0.01";
+  };
+
   const getAvailableUsers = (currentIndex) => {
     const selectedUserIds = new Set(
       form.participants
@@ -66,9 +110,9 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
   };
 
   const canSubmit = (() => {
-    const filledParticipants = form.participants.filter((participant) => participant.userId);
     const participantIds = filledParticipants.map((participant) => participant.userId);
     const uniqueParticipants = new Set(participantIds);
+    const valueField = getParticipantValueField();
 
     if (!form.amount.trim() || filledParticipants.length < 2) {
       return false;
@@ -78,8 +122,12 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
       return false;
     }
 
-    if (form.splitType === "unequal") {
-      return filledParticipants.every((participant) => participant.share !== "");
+    if (!filledParticipants[form.payerIndex]?.userId) {
+      return false;
+    }
+
+    if (valueField) {
+      return filledParticipants.every((participant) => participant[valueField] !== "");
     }
 
     return true;
@@ -91,12 +139,24 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
     try {
       setError("");
 
+      const valueField = getParticipantValueField();
+      const participants = filledParticipants.map((participant) => {
+        if (!valueField) {
+          return { userId: participant.userId };
+        }
+
+        return {
+          userId: participant.userId,
+          [valueField]: participant[valueField],
+        };
+      });
+
       const created = await onCreate({
         description: form.description,
         amount: form.amount,
         splitType: form.splitType,
-        payer: form.participants[form.payerIndex],
-        participants: form.participants,
+        payer: { userId: filledParticipants[form.payerIndex].userId },
+        participants,
       });
 
       if (created) {
@@ -141,6 +201,8 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
           >
             <option value="equal">Equal Split</option>
             <option value="unequal">Unequal Split</option>
+            <option value="percentage">Percentage Split</option>
+            <option value="ratio">Ratio Split</option>
           </select>
         </div>
 
@@ -166,14 +228,16 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
               ))}
             </select>
 
-            {form.splitType === "unequal" ? (
+            {getParticipantValueField() ? (
               <input
                 type="number"
-                step="0.01"
+                step={getParticipantValueStep()}
                 min="0"
-                placeholder="Share"
-                value={participant.share}
-                onChange={(event) => updateParticipant(index, "share", event.target.value)}
+                placeholder={getParticipantValueLabel()}
+                value={participant[getParticipantValueField()]}
+                onChange={(event) =>
+                  updateParticipant(index, getParticipantValueField(), event.target.value)
+                }
                 required
               />
             ) : (
@@ -195,7 +259,7 @@ const ExpenseForm = ({ onCreate, loading, users }) => {
           value={form.payerIndex}
           onChange={(event) => setForm({ ...form, payerIndex: Number(event.target.value) })}
         >
-          {form.participants.map((participant, index) => (
+          {filledParticipants.map((participant, index) => (
             <option value={index} key={index}>
               {activeUsers.find((user) => user.id === participant.userId)?.name || `Participant ${index + 1}`} paid
             </option>

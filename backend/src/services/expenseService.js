@@ -1,8 +1,24 @@
 const Expense = require("../models/expenseModel");
 const User = require("../models/userModel");
-const { parseAmount, roundAmount, splitEqualAmounts } = require("../utils/money");
+const {
+  parseAmount,
+  roundAmount,
+  splitEqualAmounts,
+  splitByPercentages,
+  splitByRatios,
+} = require("../utils/money");
 const { EXPENSE } = require("../utils/msgResponse");
 const { getBalancesFromExpenses, getSettlementsFromExpenses } = require("../utils/settlementHelpers");
+
+const normalizeSplitType = (value) => {
+  const splitType = String(value || "equal").trim().toLowerCase();
+
+  if (splitType === "percent") {
+    return "percentage";
+  }
+
+  return splitType;
+};
 
 const getUserMap = (users) =>
   new Map(users.map((user) => [user._id.toString(), user]));
@@ -12,6 +28,11 @@ const getParticipants = (list) =>
     .map((item) => ({
       userId: String(item?.userId || "").trim(),
       share: item?.share === "" || item?.share === undefined ? "" : Number(item.share),
+      percentage:
+        item?.percentage === "" || item?.percentage === undefined
+          ? ""
+          : Number(item.percentage),
+      ratio: item?.ratio === "" || item?.ratio === undefined ? "" : Number(item.ratio),
     }))
     .filter((item) => item.userId);
 
@@ -23,7 +44,7 @@ const getActiveUsers = async (userIds) =>
 
 const normalizeExpensePayload = (body, users) => {
   const description = String(body.description || "").trim();
-  const splitType = String(body.splitType || "equal").trim().toLowerCase();
+  const splitType = normalizeSplitType(body.splitType);
   const amount = parseAmount(body.amount);
   const payerUserId = String(body.payer?.userId || "").trim();
   const participantList = Array.isArray(body.participants) ? body.participants : [];
@@ -32,7 +53,7 @@ const normalizeExpensePayload = (body, users) => {
     return { success: false, statusCode: 400, message: EXPENSE.INVALID_AMOUNT };
   }
 
-  if (!["equal", "unequal"].includes(splitType)) {
+  if (!["equal", "unequal", "ratio", "percentage"].includes(splitType)) {
     return { success: false, statusCode: 400, message: EXPENSE.INVALID_SPLIT_TYPE };
   }
 
@@ -76,7 +97,7 @@ const normalizeExpensePayload = (body, users) => {
       userId: item.userId,
       share: equalShares[index],
     }));
-  } else {
+  } else if (splitType === "unequal") {
     let totalShare = 0;
 
     normalizedParticipants = [];
@@ -101,6 +122,53 @@ const normalizeExpensePayload = (body, users) => {
     if (totalShare !== amount) {
       return { success: false, statusCode: 400, message: EXPENSE.INVALID_TOTAL_SHARE };
     }
+  } else if (splitType === "percentage") {
+    let totalPercentage = 0;
+
+    for (let index = 0; index < participants.length; index += 1) {
+      const participant = participants[index];
+
+      if (!Number.isFinite(participant.percentage) || participant.percentage < 0) {
+        return { success: false, statusCode: 400, message: EXPENSE.INVALID_PERCENTAGE };
+      }
+
+      totalPercentage += Number(participant.percentage);
+    }
+
+    if (roundAmount(totalPercentage) !== 100) {
+      return { success: false, statusCode: 400, message: EXPENSE.INVALID_TOTAL_PERCENTAGE };
+    }
+
+    const shares = splitByPercentages(
+      amount,
+      participants.map((participant) => Number(participant.percentage))
+    );
+
+    normalizedParticipants = participants.map((participant, index) => ({
+      userId: participant.userId,
+      share: shares[index],
+      percentage: roundAmount(Number(participant.percentage)),
+    }));
+  } else {
+    const ratios = [];
+
+    for (let index = 0; index < participants.length; index += 1) {
+      const participant = participants[index];
+
+      if (!Number.isFinite(participant.ratio) || participant.ratio <= 0) {
+        return { success: false, statusCode: 400, message: EXPENSE.INVALID_RATIO };
+      }
+
+      ratios.push(Number(participant.ratio));
+    }
+
+    const shares = splitByRatios(amount, ratios);
+
+    normalizedParticipants = participants.map((participant, index) => ({
+      userId: participant.userId,
+      share: shares[index],
+      ratio: Number(participant.ratio),
+    }));
   }
 
   return {
@@ -216,6 +284,8 @@ const getExpenseList = async () =>
               $ifNull: [{ $arrayElemAt: ["$participantUser.name", 0] }, "Unknown user"],
             },
             share: "$participants.share",
+            percentage: "$participants.percentage",
+            ratio: "$participants.ratio",
           },
         },
       },

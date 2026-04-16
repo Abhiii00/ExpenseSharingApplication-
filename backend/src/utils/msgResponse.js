@@ -22,7 +22,7 @@ const EXPENSE = {
   BALANCES_FETCHED: "Balances fetched successfully",
   SETTLEMENTS_FETCHED: "Settlements fetched successfully",
   INVALID_AMOUNT: "Amount must be greater than zero.",
-  INVALID_SPLIT_TYPE: "Split type must be equal or unequal.",
+  INVALID_SPLIT_TYPE: "Split type must be equal, unequal, ratio, or percentage.",
   PAYER_REQUIRED: "Payer is required.",
   MIN_PARTICIPANTS: "At least two participants are required.",
   DUPLICATE_PARTICIPANTS: "Participants must be unique.",
@@ -31,6 +31,9 @@ const EXPENSE = {
   PAYER_NOT_IN_PARTICIPANTS: "Payer must be included in participants.",
   INVALID_SHARE: "Each participant share must be a valid amount.",
   INVALID_TOTAL_SHARE: "Participant shares must add up to the total amount.",
+  INVALID_PERCENTAGE: "Each participant percentage must be a valid amount.",
+  INVALID_TOTAL_PERCENTAGE: "Participant percentages must add up to 100.",
+  INVALID_RATIO: "Each participant ratio must be greater than zero.",
 };
 
 module.exports = {

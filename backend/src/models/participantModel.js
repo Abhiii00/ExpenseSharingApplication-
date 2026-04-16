@@ -12,6 +12,14 @@ const participantSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    percentage: {
+      type: Number,
+      min: 0,
+    },
+    ratio: {
+      type: Number,
+      min: 0,
+    },
   },
   { _id: false }
 );
