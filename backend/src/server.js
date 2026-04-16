@@ -8,11 +8,14 @@ const routes = require("./routes/route");
 
 const app = express();
 
+// CORS configuration
 app.use(
   cors({
-    origin: env.clientUrl,
+    origin: env.clientUrl || "*", 
+    credentials: true,
   })
 );
+
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -20,11 +23,18 @@ app.use("/api", routes);
 app.use(notFound);
 
 const startServer = async () => {
-  await connectDB();
+  try {
+    await connectDB();
 
-  app.listen(env.port, () => {
-    console.log(`Server running on port ${env.port}`);
-  });
+    const PORT = env.port || process.env.PORT || 5000;
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server startup failed:", error.message);
+    process.exit(1);
+  }
 };
 
 startServer();
