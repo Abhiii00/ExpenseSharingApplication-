@@ -8,10 +8,12 @@ const routes = require("./routes/route");
 
 const app = express();
 
-// CORS configuration
 app.use(
   cors({
-    origin: env.clientUrl || "*", 
+    origin: [
+      "http://13.232.130.132",
+      "http://localhost:5173",
+    ],
     credentials: true,
   })
 );
